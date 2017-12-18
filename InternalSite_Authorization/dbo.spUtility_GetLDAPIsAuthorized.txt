@@ -1,0 +1,120 @@
+USE [Utility]
+GO
+
+/****** Object:  StoredProcedure [dbo].[spUtility_GetLDAPIsAuthorized]    Script Date: 2/2/2017 3:37:56 PM ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+CREATE PROCEDURE [dbo].[spUtility_GetLDAPIsAuthorized]
+(
+    @LdapUsername NVARCHAR(50),
+	@PageName NVARCHAR(50)
+)
+
+AS
+/*=======================================================================================
+Name of Procedure			: spUtility_GetLDAPIsAuthorized
+Date Created				: 01/23/2017
+Created By				: John Hovanec
+Description				: Returns the user's authorized LDAP group(s) regarding access to an internal web page 
+Used By					: Internal Site for Active Directory group authorization
+=========================================================================================
+Date Modified				Developer					Description of Mod/ModNumber
+
+=========================================================================================
+Example Invovation:
+
+EXEC dbo.spUtility_GetLDAPIsAuthorized 
+@LdapUsername = 'yetti',
+@PageName = 'ForceList'					-- Retrieve LDAP groups that yetti is a member of
+
+=========================================================================================*/
+
+BEGIN
+    DECLARE @Query NVARCHAR(1024), @Path NVARCHAR(1024)
+
+	-- Create a table variable to hold groups the user belongs to
+	DECLARE @MembershipTable TABLE
+	(
+	  LdapGroup NVARCHAR(50)
+	)
+
+	-- Create a table variable to hold authorized LDAP groups for a given page
+	DECLARE @AuthorizedTable TABLE
+	(
+	  AuthGroupName nvarchar(50)
+	)
+
+	BEGIN TRY
+		-- Get the LDAP distinguishedName for a given user
+		SET @Query = '
+			SELECT @Path = distinguishedName
+			FROM OPENQUERY(ADSI, ''
+				SELECT distinguishedName 
+				FROM ''''LDAP://FOO.net/DC=FOO,DC=net''''
+				WHERE 
+					objectClass = ''''user'''' AND
+					sAMAccountName = ''''' + @LdapUsername + '''''
+			'')
+		'
+		EXEC SP_EXECUTESQL @Query, N'@Path NVARCHAR(1024) OUTPUT', @Path = @Path OUTPUT 
+
+		-- Use the distinguishedNamed name found above to get LDAP group membership
+		SET @Query = '
+			SELECT name AS LdapGroup 
+			FROM OPENQUERY(ADSI,''
+				SELECT name 
+				FROM ''''LDAP://FOO.net/DC=FOO,DC=net''''
+				WHERE 
+					objectClass=''''group'''' AND
+					member=''''' + @Path + '''''
+			'')
+			ORDER BY name
+		'
+		-- Insert results of LDAP query into membership table
+		insert into @MembershipTable
+		EXEC SP_EXECUTESQL @Query
+
+		-- Find the RestrictedPageID based on the given page name
+		declare @RestrictPageID int
+	
+		SELECT @RestrictPageID = RestrictedPageID
+		FROM tblUtility_RestrictedPages
+		WHERE PageName LIKE '%' + @PageName + '%'
+	
+	
+		-- retrieve LDAP group names authorized for given page
+		insert into @AuthorizedTable
+		select GroupName from tblUtility_Groups g
+		join tblUtility_Access a on g.GroupID = a.GroupID
+		where a.RestrictedPageID = @RestrictPageID
+	
+		--select * from @AuthorizedTable -- use to see authorized groups for a page
+		--select * from @MembershipTable -- use to see a user's ldap groups
+	
+		-- Compare @AuthorizedTable and @MembershipTable for any matches 
+		SELECT AuthGroupName as AuthorizedGroupMatch
+		FROM @AuthorizedTable
+		INTERSECT
+		SELECT LdapGroup
+		FROM @MembershipTable
+	END TRY
+
+	BEGIN CATCH
+		RETURN ERROR_MESSAGE();
+	END CATCH
+
+
+END
+
+
+
+
+
+GO
+
+

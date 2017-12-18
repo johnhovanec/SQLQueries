@@ -1,0 +1,69 @@
+USE [Utility]
+GO
+
+/****** Object:  StoredProcedure [dbo].[spUtility_GetLDAPUserGroups]    Script Date: 1/11/2017 4:07:19 PM ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+CREATE PROCEDURE [dbo].[spUtility_GetLDAPUserGroups]
+(
+    @LdapUsername NVARCHAR(256)
+)
+/*=======================================================================================
+Name of Procedure			: spUtility_GetLDAPUserGroups
+Date Created				: 01/11/2017
+Created By				: John Hovanec
+Description				: Retrieves LDAP group memberships for a given user
+Used By					: Internal Site for Active Directory group authorization
+=========================================================================================
+Date Modified				Developer					Description of Mod/ModNumber
+
+=========================================================================================
+Example Invovation:
+
+EXEC dbo.spUtility_GetLDAPUserGroups  
+@LdapUsername = 'yetti'					-- Retrieve LDAP groups that yetti is a member of
+
+=========================================================================================*/
+
+AS
+BEGIN
+    DECLARE @Query NVARCHAR(1024), @Path NVARCHAR(1024)
+
+    SET @Query = '
+        SELECT @Path = distinguishedName
+        FROM OPENQUERY(ADSI, ''
+            SELECT distinguishedName 
+            FROM ''''LDAP://DC=FOO,DC=net''''
+            WHERE 
+                objectClass = ''''user'''' AND
+                sAMAccountName = ''''' + @LdapUsername + '''''
+        '')
+    '
+    EXEC SP_EXECUTESQL @Query, N'@Path NVARCHAR(1024) OUTPUT', @Path = @Path OUTPUT 
+
+    SET @Query = '
+        SELECT name AS LdapGroup 
+        FROM OPENQUERY(ADSI,''
+            SELECT name 
+            FROM ''''LDAP://DC=FOO,DC=net''''
+            WHERE 
+                objectClass=''''group'''' AND
+                member=''''' + @Path + '''''
+        '')
+        ORDER BY name
+    '
+    EXEC SP_EXECUTESQL @Query
+
+END
+
+
+
+
+GO
+
+

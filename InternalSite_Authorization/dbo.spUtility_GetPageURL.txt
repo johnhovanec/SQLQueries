@@ -1,0 +1,53 @@
+USE [Utility]
+GO
+
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+CREATE PROCEDURE [dbo].[spUtility_GetPageURL]
+(
+	@PageName NVARCHAR(50)
+)
+/*=======================================================================================
+Name of Procedure			: spUtility_GetPageURL
+Date Created				: 01/23/2017
+Created By				: John Hovanec
+Description				: Returns the url for a page based on the shortened name
+Used By					: Internal Site for Active Directory group authorization
+=========================================================================================
+Date Modified				Developer					Description of Mod/ModNumber
+
+=========================================================================================
+Example Invovation:
+
+EXEC dbo.spUtility_GetPageURL
+@PageName = 'ForceList'			
+
+
+=========================================================================================*/
+
+AS
+BEGIN
+ 
+	BEGIN TRY
+		SELECT PageURL
+		FROM tblUtility_RestrictedPages
+		WHERE PageName LIKE '%' + @PageName + '%'  
+	END TRY
+
+	BEGIN CATCH
+		RETURN ERROR_MESSAGE();
+	END CATCH
+	
+END
+
+
+
+GO
+
+

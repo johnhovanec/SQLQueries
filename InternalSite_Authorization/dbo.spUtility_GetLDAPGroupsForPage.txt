@@ -1,0 +1,48 @@
+USE [Utility]
+GO
+
+/****** Object:  StoredProcedure [dbo].[spUtility_GetLDAPGroupsForPage]    Script Date: 1/19/2017 2:31:09 PM ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+
+ALTER PROCEDURE [dbo].[spUtility_GetLDAPGroupsForPage]
+(
+    @PageName VARCHAR(50)
+)
+AS
+/*=======================================================================================
+Name of Procedure			: spUtility_GetLDAPGroupsForPage
+Date Created				: 01/19/2017
+Created By				: John Hovanec
+Description				: Retrieves authorized LDAP groups for a given page 
+Used By					: Internal Site for Active Directory group authorization
+=========================================================================================
+Date Modified				Developer					Description of Mod/ModNumber
+
+=========================================================================================
+Example Invovation:
+
+EXEC dbo.spUtility_GetLDAPGroupsForPage  
+@PageName = 'ForceList'					-- Retrieve LDAP groups that are allowed to access 'ForceList' page
+
+*/
+
+BEGIN
+
+	BEGIN TRY
+		SELECT RestrictedPageID
+		FROM tblUtility_RestrictedPages
+		WHERE PageName LIKE '%' + @PageName + '%'
+	END TRY
+
+	BEGIN CATCH
+		RETURN ERROR_MESSAGE();
+	END CATCH
+END
+
+GO
