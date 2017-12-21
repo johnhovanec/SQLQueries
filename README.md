@@ -1,2 +1,2 @@
 # SQLQueries
-A repository for SQL queries that I have worked on and found useful. 
+A repository for SQL queries and stored procedures created for work projects.  
